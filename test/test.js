@@ -1,6 +1,6 @@
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import {h, updateNode} from '../src/index';
+import vdom, {updateNode} from '../src/index';
 
 chai.Should();
 chai.use(chaiAsPromised);
@@ -27,45 +27,39 @@ describe('Test Virtual DOM', function () {
 
     it('Test Initial Create', function () {
         resetTest();
-        updateNode(testDom, null, h('span'));
+        updateNode(testDom, null, <span/>);
         assert.equal(testDom.innerHTML, '<span></span>');
 
         resetTest();
-        updateNode(testDom, null, h('span', {a: '1'}, 'ccc'));
+        updateNode(testDom, null, <span a="1">ccc</span>);
         assert.equal(testDom.innerHTML, '<span a="1">ccc</span>');
 
         resetTest();
-        updateNode(
-            testDom,
-            null,
-            h('span', {a: '1'}, [
-                'ccc',
-                h('a', {src: 'test.src'}),
-                'ddd',
-                h('div', {}, [
-                    h('i'),
-                    'eee'
-                ])
-            ])
-        );
+        updateNode(testDom, null, (
+            <span a="1">
+                ccc
+                <a src="test.src"/>
+                ddd
+                <div><i/>eee</div>
+            </span>
+        ));
         assert.equal(testDom.innerHTML, '<span a="1">ccc<a src="test.src"></a>ddd<div><i></i>eee</div></span>');
     });
 
     it('Test Update VDom', function () {
         resetTest();
-        const vdomTree = h('span', {a: '1'}, 'ccc'),
-            vdomTree_updateAttr = h('span', {a: '2'}, 'ccc'),
-            vdomTree_updateChild = h('span', {a: '2'}, 'cccd'),
-            vdomTree_updateChild2 = h('span', {a: '2'}, ['ddd', h('div', {c: '2'}, 'e')]),
-            anotherVdomTree = h('span', {a: '1'}, [
-                'ccc',
-                h('a', {src: 'test.src'}),
-                'ddd',
-                h('div', {}, [
-                    h('i'),
-                    'eee'
-                ])
-            ]);
+        const vdomTree = <span a="1">ccc</span>,
+            vdomTree_updateAttr = <span a="2">ccc</span>,
+            vdomTree_updateChild = <span a="2">cccd</span>,
+            vdomTree_updateChild2 = <span a="2">ddd<div c="2">e</div></span>,
+            anotherVdomTree = (
+                <span a="1">
+                    ccc
+                    <a src="test.src"/>
+                    ddd
+                    <div><i/>eee</div>
+                </span>
+            );
 
         updateNode(testDom, null, vdomTree);
         updateNode(testDom, vdomTree, vdomTree_updateAttr);
@@ -89,7 +83,7 @@ describe('Test Virtual DOM', function () {
             new Promise((resolve, reject) => {
                 _reject = reject;
                 resetTest();
-                const simpleVDomTree = h('span', {a: '1'}, 'ccc');
+                const simpleVDomTree = <span a="1">ccc</span>;
                 updateNode(testDom, null, simpleVDomTree);
                 startObserve();
                 updateNode(testDom, simpleVDomTree, simpleVDomTree);
@@ -107,15 +101,14 @@ describe('Test Virtual DOM', function () {
             new Promise((resolve, reject) => {
                 _reject = reject;
                 resetTest();
-                const complexVDomTree = h('span', {a: '1'}, [
-                    'ccc',
-                    h('a', {src: 'test.src'}),
-                    'ddd',
-                    h('div', {}, [
-                        h('i'),
-                        'eee'
-                    ])
-                ]);
+                const complexVDomTree = (
+                    <span a="1">
+                        ccc
+                        <a src="test.src"/>
+                        ddd
+                        <div><i/>eee</div>
+                    </span>
+                );
                 updateNode(testDom, null, complexVDomTree);
                 startObserve();
                 updateNode(testDom, complexVDomTree, complexVDomTree);
