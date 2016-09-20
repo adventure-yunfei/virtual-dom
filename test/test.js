@@ -1,6 +1,7 @@
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import vdom, {updateNode} from '../src/index';
+import * as DiffTypes from '../src/diff-types';
+import vdom, {updateNode, findDiff, applyDiff} from '../src/index';
 
 chai.Should();
 chai.use(chaiAsPromised);
@@ -12,22 +13,22 @@ function resetTest() {
     testDom.innerHTML = '';
 }
 
-function timeout(interval = 1000) {
-    return new Promise(resolve => {
-        setTimeout(resolve, interval);
-    });
-}
-
 describe('Test Virtual DOM', function () {
     it('Test Null', function () {
         resetTest();
         updateNode(testDom, null, null);
+        const diffs = findDiff(testDom, null, null);
+        applyDiff(diffs);
+        assert.equal(diffs.length, 0);
         assert.equal(testDom.innerHTML, '');
     });
 
     it('Test Initial Create', function () {
         resetTest();
-        updateNode(testDom, null, <span/>);
+        const diffs = findDiff(testDom, null, <span/>);
+        applyDiff(diffs);
+        assert.equal(diffs.length, 1);
+        assert(diffs[0] instanceof DiffTypes.InsertNodeDiff, 'Unexpected diff types');
         assert.equal(testDom.innerHTML, '<span></span>');
 
         resetTest();
@@ -75,46 +76,25 @@ describe('Test Virtual DOM', function () {
         assert.equal(testDom.innerHTML, '<span a="1">ccc<a src="test.src"></a>ddd<div><i></i>eee</div></span>');
     });
 
-    it('Test Update with Same Node: Simple VDOM', function () {
-        let _reject = null;
-        const forbiddenObserver = new MutationObserver(() => _reject('错误的DOM更新')),
-            startObserve = () => forbiddenObserver.observe(testDom, {childList: true, attributes: true, subtree: true});
-        return Promise.race([
-            new Promise((resolve, reject) => {
-                _reject = reject;
-                resetTest();
-                const simpleVDomTree = <span a="1">ccc</span>;
-                updateNode(testDom, null, simpleVDomTree);
-                startObserve();
-                updateNode(testDom, simpleVDomTree, simpleVDomTree);
-            }),
+    it('Test Update with Same VDOM', function () {
+        const simpleVDomTree = <span a="1">ccc</span>,
+            complexVDomTree = (
+                <span a="1">
+                    ccc
+                    <a src="test.src"/>
+                    ddd
+                    <div><i/>eee</div>
+                </span>
+            );
 
-            timeout(300)
-        ]).finally(() => forbiddenObserver.disconnect());
-    });
+        resetTest();
+        updateNode(testDom, null, simpleVDomTree);
+        let diffs = findDiff(testDom, simpleVDomTree, simpleVDomTree);
+        assert.equal(diffs.length, 0);
 
-    it('Test Update with Same Node: Complex VDOM', function () {
-        let _reject = null;
-        const forbiddenObserver = new MutationObserver(() => _reject('错误的DOM更新')),
-            startObserve = () => forbiddenObserver.observe(testDom, {childList: true, attributes: true, subtree: true});
-        return Promise.race([
-            new Promise((resolve, reject) => {
-                _reject = reject;
-                resetTest();
-                const complexVDomTree = (
-                    <span a="1">
-                        ccc
-                        <a src="test.src"/>
-                        ddd
-                        <div><i/>eee</div>
-                    </span>
-                );
-                updateNode(testDom, null, complexVDomTree);
-                startObserve();
-                updateNode(testDom, complexVDomTree, complexVDomTree);
-            }),
-
-            timeout(300)
-        ]).finally(() => forbiddenObserver.disconnect());
+        resetTest();
+        updateNode(testDom, null, complexVDomTree);
+        diffs = findDiff(testDom, complexVDomTree, complexVDomTree);
+        assert.equal(diffs.length, 0);
     });
 });

@@ -12,12 +12,27 @@ const vdom = {
     },
 
     createVDOMNode(type, attributes, ...children) {
-        children.forEach((child, idx) => {
+        children = children.map((child, idx) => {
             if (typeof child === 'string') {
-                children[idx] = new VDOMTextNode(child);
+                child = new VDOMTextNode(child);
             }
+            if (child.key === '_tmp_') {
+                child.setKey(`.${idx}`);
+            }
+            return child;
         });
-        return new VDOMNode(type, attributes, children);
+
+        let key = null;
+        if (attributes && attributes.key != null) {
+            key = attributes.key;
+            delete attributes.key;
+        }
+
+        const vdomNode = new VDOMNode(type, attributes, children);
+        if (key) {
+            vdomNode.setKey(key);
+        }
+        return vdomNode;
     }
 };
 

@@ -1,6 +1,8 @@
 import forEach from 'lodash/forEach';
+import isEmpty from 'lodash/isEmpty';
 import has from 'lodash/has';
 import * as DiffTypes from './diff-types';
+import findKeysDiff, {KEY_DIFF_TYPES} from './find-keys-diff';
 
 const TYPE_TEXT = '_text';
 
@@ -18,30 +20,71 @@ function diffAttributes(diffs, dom, oldAttrs, newAttrs) {
         }
     });
 
-    diffs.push(new DiffTypes.RemoveAttributeDiff(null, null, dom, delAttrKeys));
-    diffs.push(new DiffTypes.SetAttributeDiff(null, null, dom, setAttrs));
+    if (delAttrKeys.length) {
+        diffs.push(new DiffTypes.RemoveAttributeDiff(null, dom, delAttrKeys));
+    }
+    if (!isEmpty(setAttrs)) {
+        diffs.push(new DiffTypes.SetAttributeDiff(null, dom, setAttrs));
+    }
 }
 
 function diffChildren(diffs, dom, oldChildren, newChildren) {
-    forEach(oldChildren, (child, idx) => {
-        const newChild = newChildren[idx],
-            tgtDOM = dom.childNodes[idx];
-        if (newChild == null) {
-            diffs.push(new DiffTypes.RemoveNodeDiff(child, dom, tgtDOM));
-        } else {
-            const type = child.type,
-                newType = newChild.type;
-            if (type !== newType || (type === TYPE_TEXT && child !== newChild)) {
-                diffs.push(new DiffTypes.ReplaceNodeDiff(newChild, dom, tgtDOM));
-            } else if (type !== TYPE_TEXT) {
-                diffAttributes(diffs, tgtDOM, child.attributes, newChild.attributes);
-                diffChildren(diffs, tgtDOM, child.children, newChild.children);
-            }
+    const oldKeys = [],
+        oldKeyIdxMap = {},
+        newKeys = [],
+        newChildMap = {},
+        childDOMs = dom.childNodes;
+    oldChildren.forEach(({key}, idx) => {
+        oldKeys.push(key);
+        oldKeyIdxMap[key] = idx;
+    });
+    newChildren.forEach(child => {
+        newKeys.push(child.key);
+        newChildMap[child.key] = child;
+    });
+
+    // Searching for dom insert/delete/move
+    const keyDiffs = findKeysDiff(oldKeys, newKeys);
+    keyDiffs.forEach(({type, key, next}) => {
+        switch (type) {
+            case KEY_DIFF_TYPES.INSERT_KEY:
+                diffs.push(new DiffTypes.InsertNodeDiff(
+                    dom,
+                    null,
+                    childDOMs[oldKeyIdxMap[next]],
+                    newChildMap[key]
+                ));
+                break;
+            case KEY_DIFF_TYPES.DELETE_KEY:
+                diffs.push(new DiffTypes.RemoveNodeDiff(
+                    dom,
+                    childDOMs[oldKeyIdxMap[key]]
+                ));
+                break;
+            case KEY_DIFF_TYPES.MOVE_KEY:
+                diffs.push(new DiffTypes.MoveNodeDiff(
+                    dom,
+                    childDOMs[oldKeyIdxMap[key]],
+                    childDOMs[oldKeyIdxMap[next]]
+                ));
         }
     });
 
-    newChildren.slice(oldChildren.length).forEach(newChild => {
-        diffs.push(new DiffTypes.InsertNodeDiff(newChild, dom, null));
+    // Searching for dom replace/update
+    oldChildren.forEach((oldChild, idx) => {
+        const key = oldChild.key,
+            newChild = newChildMap[key];
+        if (newChild != null) {
+            const oldType = oldChild.type,
+                newType = newChild.type,
+                tgtDOM = dom.childNodes[idx];
+            if (oldType !== newType || (oldType === TYPE_TEXT && oldChild !== newChild)) {
+                diffs.push(new DiffTypes.ReplaceNodeDiff(dom, tgtDOM, newChild));
+            } else if (oldType !== TYPE_TEXT) {
+                diffAttributes(diffs, tgtDOM, oldChild.attributes, newChild.attributes);
+                diffChildren(diffs, tgtDOM, oldChild.children, newChild.children);
+            }
+        }
     });
 }
 

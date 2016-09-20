@@ -5,9 +5,14 @@ export const TYPE_TEXT_NODE = '_text';
 
 export class VDOMNode {
     constructor(type, attributes = {}, children = []) {
+        this.key = '_tmp_';
         this.type = type;
         this.attributes = attributes || {};
         this.children = children == null ? [] : (isArray(children) ? children : [children]);
+    }
+
+    setKey(key) {
+        this.key = key;
     }
 
     createDOM() {
