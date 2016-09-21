@@ -45,13 +45,13 @@ function diffChildren(diffs, dom, oldChildren, newChildren) {
 
     // Searching for dom insert/delete/move
     const keyDiffs = findKeysDiff(oldKeys, newKeys);
-    keyDiffs.forEach(({type, key, next}) => {
+    keyDiffs.forEach(({type, key, prev}) => {
         switch (type) {
             case KEY_DIFF_TYPES.INSERT_KEY:
                 diffs.push(new DiffTypes.InsertNodeDiff(
                     dom,
                     null,
-                    childDOMs[oldKeyIdxMap[next]],
+                    childDOMs[oldKeyIdxMap[prev]],
                     newChildMap[key]
                 ));
                 break;
@@ -65,7 +65,7 @@ function diffChildren(diffs, dom, oldChildren, newChildren) {
                 diffs.push(new DiffTypes.MoveNodeDiff(
                     dom,
                     childDOMs[oldKeyIdxMap[key]],
-                    childDOMs[oldKeyIdxMap[next]]
+                    childDOMs[oldKeyIdxMap[prev]]
                 ));
         }
     });

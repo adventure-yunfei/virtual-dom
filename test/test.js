@@ -1,6 +1,9 @@
 import chai from 'chai';
+import random from 'lodash/random';
+import range from 'lodash/range';
 import chaiAsPromised from 'chai-as-promised';
 import * as DiffTypes from '../src/diff-types';
+import findKeysDiff, {testDiffs as testKeysDiff} from '../src/find-keys-diff';
 import vdom, {updateNode, findDiff, applyDiff} from '../src/index';
 
 chai.Should();
@@ -13,7 +16,72 @@ function resetTest() {
     testDom.innerHTML = '';
 }
 
+describe('Test Key Diffs', function () {
+    function findAndTestDiff(oldKeys, newKeys) {
+        const keyDiffs = findKeysDiff(oldKeys, newKeys);
+        assert(testKeysDiff(oldKeys, newKeys, keyDiffs), `Key diff not matching. keys: ${JSON.stringify(oldKeys)}, ${JSON.stringify(newKeys)}`);
+    }
+    function genRandomKeys(size) {
+        const keysMap = {},
+            keys = [];
+        while (keys.length < size) {
+            const candidateKey = random(size * 10).toString();
+            if (!keysMap[candidateKey]) {
+                keys.push(candidateKey);
+                keysMap[candidateKey] = true;
+            }
+        }
+        return keys;
+    }
+
+    it('Test Key Diffs', function () {
+        findAndTestDiff(['a', 'b', 'c', 'd'], ['a', 'd', 'b', 'c']);
+        findAndTestDiff(['a', 'b', 'c', 'd'], ['a', 'd', 'c']);
+
+        findAndTestDiff(["9","11","8","36","1"], ["33","8","0","9","23"]);
+    });
+
+    it('Completely Random Test Key Diffs', function () {
+        for (let i = 0; i < 100; i++) {
+            findAndTestDiff(genRandomKeys(random(5)), genRandomKeys(5));
+            findAndTestDiff(genRandomKeys(random(20)), genRandomKeys(20));
+            findAndTestDiff(genRandomKeys(random(200)), genRandomKeys(200));
+        }
+    });
+});
+
 describe('Test Virtual DOM', function () {
+    const alphabet = range(26).map(idx => String.fromCharCode('a'.charCodeAt(0)));
+    const availableVDOMTypes = ['div', 'span', 'a', 'button', 'p', 'h'];
+    const _randomType = () => availableVDOMTypes[random(availableVDOMTypes.length - 1)],
+        _randomAlphabet = () => alphabet[random(alphabet.length - 1)];
+    function genRandomVDOM(nodeSize, maxAttrSize = 5, maxChildSize = 10) {
+        nodeSize = nodeSize - 1;
+        const randomAttrs = range(random(maxAttrSize)).reduce((result) => {
+                result[_randomAlphabet()] = _randomAlphabet();
+                return result;
+            }, {}),
+            childSize = nodeSize === 0 ? 0 : random(1, Math.min(nodeSize, maxChildSize));
+        nodeSize = nodeSize - childSize;
+        const childSubnodeSizes = range(childSize).map((val, idx) => {
+            let subnodeSize = Math.min(Math.round(random(nodeSize) / childSize), nodeSize);
+            if (idx === childSize - 1) {
+                subnodeSize = nodeSize;
+            }
+            nodeSize = nodeSize - subnodeSize;
+
+            return subnodeSize;
+        });
+
+        return vdom.createVDOMNode(
+            _randomType(),
+            randomAttrs,
+            ...childSubnodeSizes.map(subnodeSize => {
+                return genRandomVDOM(subnodeSize + 1, maxAttrSize, maxChildSize);
+            })
+        );
+    }
+
     it('Test Null', function () {
         resetTest();
         updateNode(testDom, null, null);
@@ -95,6 +163,16 @@ describe('Test Virtual DOM', function () {
         resetTest();
         updateNode(testDom, null, complexVDomTree);
         diffs = findDiff(testDom, complexVDomTree, complexVDomTree);
+        assert.equal(diffs.length, 0);
+    });
+
+    const randomVNode = genRandomVDOM(100000);
+    it('Before Test with Random VDOM: Prepare Real DOM...', function () {
+        resetTest();
+        updateNode(testDom, null, randomVNode);
+    });
+    it('Test with Random VDOM', function () {
+        let diffs = findDiff(testDom, randomVNode, randomVNode);
         assert.equal(diffs.length, 0);
     });
 });

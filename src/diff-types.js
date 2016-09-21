@@ -21,23 +21,29 @@ export class RemoveNodeDiff extends DiffType {
 }
 
 export class InsertNodeDiff extends DiffType {
-    constructor(containerDOM, realDOM, nextDOM, vdomNode) {
+    constructor(containerDOM, realDOM, prevDOM, vdomNode) {
         super(containerDOM, null);
-        this.nextDOM = nextDOM;
+        this.prevDOM = prevDOM;
         this.vdomNode = vdomNode;
     }
     apply() {
-        this.containerDOM.insertBefore(this.vdomNode.createDOM(), this.nextDOM);
+        this.containerDOM.insertBefore(
+            this.vdomNode.createDOM(),
+            this.prevDOM ? this.prevDOM.nextSibling : this.containerDOM.firstChild
+        );
     }
 }
 
 export class MoveNodeDiff extends DiffType {
-    constructor(containerDOM, realDOM, nextDOM) {
+    constructor(containerDOM, realDOM, prevDOM) {
         super(containerDOM, realDOM);
-        this.nextDOM = nextDOM;
+        this.prevDOM = prevDOM;
     }
     apply() {
-        this.containerDOM.insertBefore(this.realDOM, this.nextDOM);
+        this.containerDOM.insertBefore(
+            this.realDOM,
+            this.prevDOM ? this.prevDOM.nextSibling : this.containerDOM.firstChild
+        );
     }
 }
 
